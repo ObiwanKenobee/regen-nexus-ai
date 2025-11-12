@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, CheckCircle2, Clock, Target } from "lucide-react";
+import InteractiveMap from "./InteractiveMap";
 
 const regions = [
   {
@@ -64,6 +65,11 @@ const AfricaMap = () => {
           <p className="text-lg text-muted-foreground leading-relaxed">
             Building regenerative infrastructure across Africa, one community at a time
           </p>
+        </div>
+
+        {/* Interactive Map */}
+        <div className="mb-12">
+          <InteractiveMap />
         </div>
 
         <div className="max-w-5xl mx-auto">
