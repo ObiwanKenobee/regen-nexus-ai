@@ -4,8 +4,13 @@ import { useRef, useMemo, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { Card } from '@/components/ui/card';
 import { VaultDetailModal } from '@/components/VaultDetailModal';
+import { TransactionForm } from '@/components/TransactionForm';
+import { TimelinePlayback } from '@/components/TimelinePlayback';
+import { NetworkFilters } from '@/components/NetworkFilters';
 import { useCapitalFlowData } from '@/hooks/useCapitalFlowData';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface NodeData {
   position: [number, number, number];
@@ -13,6 +18,8 @@ interface NodeData {
   type: 'vault' | 'investor';
   id: string;
   amount?: string;
+  country?: string;
+  investorType?: string;
 }
 
 // Particle system for a single flow
@@ -205,7 +212,7 @@ const Scene = ({ nodes, flows, newTransactionId, onNodeClick }: SceneProps) => {
       <pointLight position={[10, 10, 10]} intensity={1} />
       <pointLight position={[-10, -10, -10]} intensity={0.5} />
       
-      {nodes.map((node, index) => (
+      {nodes.map((node) => (
         <NodeSphere key={node.id} {...node} onClick={onNodeClick} />
       ))}
       
@@ -242,6 +249,7 @@ const CapitalFlowVisualization = () => {
   const {
     vaults,
     investors,
+    transactions,
     flows,
     loading,
     newTransactionId,
@@ -257,26 +265,93 @@ const CapitalFlowVisualization = () => {
   const [modalTransactions, setModalTransactions] = useState<any[]>([]);
   const [connectedInvestors, setConnectedInvestors] = useState<typeof investors>([]);
   const [connectedVaults, setConnectedVaults] = useState<typeof vaults>([]);
+  
+  // Controls state
+  const [controlsOpen, setControlsOpen] = useState(true);
+  const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
+  const [selectedInvestorTypes, setSelectedInvestorTypes] = useState<string[]>([]);
+  const [timelineEndDate, setTimelineEndDate] = useState<Date>(new Date());
 
-  // Build nodes from database data
+  // Initialize filters with all options selected
+  useState(() => {
+    if (vaults.length > 0 && selectedRegions.length === 0) {
+      setSelectedRegions([...new Set(vaults.map(v => v.country))]);
+    }
+    if (investors.length > 0 && selectedInvestorTypes.length === 0) {
+      setSelectedInvestorTypes([...new Set(investors.map(i => i.type))]);
+    }
+  });
+
+  // Update filters when data loads
+  useMemo(() => {
+    if (vaults.length > 0 && selectedRegions.length === 0) {
+      setSelectedRegions([...new Set(vaults.map(v => v.country))]);
+    }
+    if (investors.length > 0 && selectedInvestorTypes.length === 0) {
+      setSelectedInvestorTypes([...new Set(investors.map(i => i.type))]);
+    }
+  }, [vaults, investors]);
+
+  // Filter vaults and investors based on selections
+  const filteredVaults = useMemo(() => {
+    if (selectedRegions.length === 0) return vaults;
+    return vaults.filter(v => selectedRegions.includes(v.country));
+  }, [vaults, selectedRegions]);
+
+  const filteredInvestors = useMemo(() => {
+    if (selectedInvestorTypes.length === 0) return investors;
+    return investors.filter(i => selectedInvestorTypes.includes(i.type));
+  }, [investors, selectedInvestorTypes]);
+
+  // Filter transactions by timeline
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter(tx => new Date(tx.created_at) <= timelineEndDate);
+  }, [transactions, timelineEndDate]);
+
+  // Build filtered flows
+  const filteredFlows = useMemo(() => {
+    const flowColors = ['#2A9D8F', '#E76F51', '#F4A261', '#264653'];
+    const computedFlows: Array<{ from: number; to: number; amount: string; color: string; transactionId: string }> = [];
+    
+    filteredTransactions.forEach((tx, idx) => {
+      const investorIndex = filteredInvestors.findIndex(i => i.id === tx.from_investor_id);
+      const vaultIndex = filteredVaults.findIndex(v => v.id === tx.to_vault_id);
+      
+      if (investorIndex !== -1 && vaultIndex !== -1) {
+        computedFlows.push({
+          from: filteredVaults.length + investorIndex,
+          to: vaultIndex,
+          amount: `$${(tx.amount / 1000000).toFixed(0)}M`,
+          color: flowColors[idx % flowColors.length],
+          transactionId: tx.id,
+        });
+      }
+    });
+    
+    return computedFlows;
+  }, [filteredTransactions, filteredVaults, filteredInvestors]);
+
+  // Build nodes from filtered data
   const nodes: NodeData[] = useMemo(() => {
-    const vaultNodes: NodeData[] = vaults.map(v => ({
+    const vaultNodes: NodeData[] = filteredVaults.map(v => ({
       position: [Number(v.position_x), Number(v.position_y), Number(v.position_z)] as [number, number, number],
       label: `${v.country}\n$${(v.total_capital / 1000000).toFixed(0)}M`,
       type: 'vault' as const,
       id: v.id,
       amount: `$${(v.total_capital / 1000000).toFixed(0)}M`,
+      country: v.country,
     }));
 
-    const investorNodes: NodeData[] = investors.map(i => ({
+    const investorNodes: NodeData[] = filteredInvestors.map(i => ({
       position: [Number(i.position_x), Number(i.position_y), Number(i.position_z)] as [number, number, number],
       label: i.name.split(' ').slice(0, 2).join('\n'),
       type: 'investor' as const,
       id: i.id,
+      investorType: i.type,
     }));
 
     return [...vaultNodes, ...investorNodes];
-  }, [vaults, investors]);
+  }, [filteredVaults, filteredInvestors]);
 
   const handleNodeClick = useCallback((id: string, type: 'vault' | 'investor') => {
     if (type === 'vault') {
@@ -302,10 +377,18 @@ const CapitalFlowVisualization = () => {
     }
   }, [vaults, investors, getVaultTransactions, getInvestorTransactions, getConnectedInvestors, getConnectedVaults]);
 
-  const totalActiveFlows = flows.reduce((sum, f) => {
+  const totalActiveFlows = filteredFlows.reduce((sum, f) => {
     const amountStr = f.amount.replace('$', '').replace('M', '');
     return sum + parseFloat(amountStr);
   }, 0);
+
+  const handleDateRangeChange = useCallback((_startDate: Date, endDate: Date) => {
+    setTimelineEndDate(endDate);
+  }, []);
+
+  const handlePlaybackPositionChange = useCallback((_date: Date) => {
+    // Position change handled by date range change
+  }, []);
 
   return (
     <section className="py-20 bg-background">
@@ -321,6 +404,37 @@ const CapitalFlowVisualization = () => {
         </div>
 
         <div className="max-w-6xl mx-auto">
+          {/* Controls Panel */}
+          <Collapsible open={controlsOpen} onOpenChange={setControlsOpen} className="mb-6">
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" className="w-full flex items-center justify-between">
+                <span>Network Controls & Filters</span>
+                {controlsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-4 space-y-4">
+              <div className="grid lg:grid-cols-2 gap-4">
+                <NetworkFilters
+                  vaults={vaults}
+                  investors={investors}
+                  selectedRegions={selectedRegions}
+                  selectedInvestorTypes={selectedInvestorTypes}
+                  onRegionChange={setSelectedRegions}
+                  onInvestorTypeChange={setSelectedInvestorTypes}
+                />
+                <TransactionForm
+                  vaults={vaults}
+                  investors={investors}
+                />
+              </div>
+              <TimelinePlayback
+                transactions={transactions}
+                onDateRangeChange={handleDateRangeChange}
+                onPlaybackPositionChange={handlePlaybackPositionChange}
+              />
+            </CollapsibleContent>
+          </Collapsible>
+
           <Card className="p-2 bg-card border-border overflow-hidden">
             <div className="w-full h-[600px] bg-gradient-to-b from-foreground/5 to-background rounded-lg relative">
               {loading ? (
@@ -331,7 +445,7 @@ const CapitalFlowVisualization = () => {
                 <Canvas camera={{ position: [0, 0, 10], fov: 50 }}>
                   <Scene 
                     nodes={nodes} 
-                    flows={flows} 
+                    flows={filteredFlows} 
                     newTransactionId={newTransactionId}
                     onNodeClick={handleNodeClick}
                   />
