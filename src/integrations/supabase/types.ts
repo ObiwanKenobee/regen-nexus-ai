@@ -14,7 +14,138 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      investors: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          position_x: number
+          position_y: number
+          position_z: number
+          region: string
+          total_invested: number
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          position_x: number
+          position_y: number
+          position_z?: number
+          region: string
+          total_invested?: number
+          type: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          position_x?: number
+          position_y?: number
+          position_z?: number
+          region?: string
+          total_invested?: number
+          type?: string
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          description: string | null
+          from_investor_id: string | null
+          id: string
+          to_vault_id: string | null
+          transaction_type: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string
+          description?: string | null
+          from_investor_id?: string | null
+          id?: string
+          to_vault_id?: string | null
+          transaction_type: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          description?: string | null
+          from_investor_id?: string | null
+          id?: string
+          to_vault_id?: string | null
+          transaction_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_from_investor_id_fkey"
+            columns: ["from_investor_id"]
+            isOneToOne: false
+            referencedRelation: "investors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_to_vault_id_fkey"
+            columns: ["to_vault_id"]
+            isOneToOne: false
+            referencedRelation: "vaults"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vaults: {
+        Row: {
+          carbon_offset_tons: number
+          community_members: number
+          country: string
+          created_at: string
+          id: string
+          name: string
+          position_x: number
+          position_y: number
+          position_z: number
+          projects_funded: number
+          status: string
+          total_capital: number
+          updated_at: string
+        }
+        Insert: {
+          carbon_offset_tons?: number
+          community_members?: number
+          country: string
+          created_at?: string
+          id?: string
+          name: string
+          position_x: number
+          position_y: number
+          position_z?: number
+          projects_funded?: number
+          status?: string
+          total_capital?: number
+          updated_at?: string
+        }
+        Update: {
+          carbon_offset_tons?: number
+          community_members?: number
+          country?: string
+          created_at?: string
+          id?: string
+          name?: string
+          position_x?: number
+          position_y?: number
+          position_z?: number
+          projects_funded?: number
+          status?: string
+          total_capital?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
