@@ -7,10 +7,14 @@ import { VaultDetailModal } from '@/components/VaultDetailModal';
 import { TransactionForm } from '@/components/TransactionForm';
 import { TimelinePlayback } from '@/components/TimelinePlayback';
 import { NetworkFilters } from '@/components/NetworkFilters';
+import { ExportControls } from '@/components/ExportControls';
+import { ComparisonView } from '@/components/ComparisonView';
+import { NotificationSystem } from '@/components/NotificationSystem';
 import { useCapitalFlowData } from '@/hooks/useCapitalFlowData';
 import { Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface NodeData {
   position: [number, number, number];
@@ -412,26 +416,56 @@ const CapitalFlowVisualization = () => {
                 {controlsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               </Button>
             </CollapsibleTrigger>
-            <CollapsibleContent className="mt-4 space-y-4">
-              <div className="grid lg:grid-cols-2 gap-4">
-                <NetworkFilters
-                  vaults={vaults}
-                  investors={investors}
-                  selectedRegions={selectedRegions}
-                  selectedInvestorTypes={selectedInvestorTypes}
-                  onRegionChange={setSelectedRegions}
-                  onInvestorTypeChange={setSelectedInvestorTypes}
-                />
-                <TransactionForm
-                  vaults={vaults}
-                  investors={investors}
-                />
-              </div>
-              <TimelinePlayback
-                transactions={transactions}
-                onDateRangeChange={handleDateRangeChange}
-                onPlaybackPositionChange={handlePlaybackPositionChange}
-              />
+            <CollapsibleContent className="mt-4">
+              <Tabs defaultValue="filters" className="w-full">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="filters">Filters</TabsTrigger>
+                  <TabsTrigger value="analytics">Analytics</TabsTrigger>
+                  <TabsTrigger value="export">Export</TabsTrigger>
+                  <TabsTrigger value="alerts">Alerts</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="filters" className="space-y-4 mt-4">
+                  <div className="grid lg:grid-cols-2 gap-4">
+                    <NetworkFilters
+                      vaults={vaults}
+                      investors={investors}
+                      selectedRegions={selectedRegions}
+                      selectedInvestorTypes={selectedInvestorTypes}
+                      onRegionChange={setSelectedRegions}
+                      onInvestorTypeChange={setSelectedInvestorTypes}
+                    />
+                    <TransactionForm
+                      vaults={vaults}
+                      investors={investors}
+                    />
+                  </div>
+                  <TimelinePlayback
+                    transactions={transactions}
+                    onDateRangeChange={handleDateRangeChange}
+                    onPlaybackPositionChange={handlePlaybackPositionChange}
+                  />
+                </TabsContent>
+                
+                <TabsContent value="analytics" className="mt-4">
+                  <ComparisonView transactions={transactions} />
+                </TabsContent>
+                
+                <TabsContent value="export" className="mt-4">
+                  <ExportControls
+                    transactions={transactions}
+                    vaults={vaults}
+                    investors={investors}
+                  />
+                </TabsContent>
+                
+                <TabsContent value="alerts" className="mt-4">
+                  <NotificationSystem
+                    transactions={transactions}
+                    newTransactionId={newTransactionId}
+                  />
+                </TabsContent>
+              </Tabs>
             </CollapsibleContent>
           </Collapsible>
 
