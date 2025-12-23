@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +15,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { Building2, Users, Loader2, Plus, Globe, Briefcase } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { Building2, Users, Loader2, Plus, Globe, Briefcase, Lock } from 'lucide-react';
 
 const countries = [
   'Kenya', 'Nigeria', 'Ghana', 'South Africa', 'Tanzania', 'Ethiopia', 
@@ -29,6 +31,7 @@ const investorTypes = [
 const regions = ['North America', 'Europe', 'Asia', 'Africa', 'Middle East', 'Oceania'];
 
 export const NodeCreationForms = () => {
+  const { user } = useAuth();
   const [isCreatingVault, setIsCreatingVault] = useState(false);
   const [isCreatingInvestor, setIsCreatingInvestor] = useState(false);
 
@@ -166,7 +169,17 @@ export const NodeCreationForms = () => {
           </p>
         </div>
 
-        <div className="max-w-3xl mx-auto">
+        {!user ? (
+          <Card className="max-w-md mx-auto p-8 text-center">
+            <Lock className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+            <h3 className="text-xl font-semibold mb-2">Sign In Required</h3>
+            <p className="text-muted-foreground mb-4">Please sign in to create vaults and investors.</p>
+            <Link to="/auth">
+              <Button>Sign In to Continue</Button>
+            </Link>
+          </Card>
+        ) : (
+          <div className="max-w-3xl mx-auto">
           <Tabs defaultValue="vault" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-8">
               <TabsTrigger value="vault" className="flex items-center gap-2">
@@ -342,7 +355,8 @@ export const NodeCreationForms = () => {
               </Card>
             </TabsContent>
           </Tabs>
-        </div>
+          </div>
+        )}
       </div>
     </section>
   );

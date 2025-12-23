@@ -10,7 +10,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
-import { Send, Loader2 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { Send, Loader2, Lock } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface Vault {
   id: string;
@@ -43,6 +45,7 @@ const transactionSchema = z.object({
 type TransactionFormData = z.infer<typeof transactionSchema>;
 
 export const TransactionForm = ({ vaults, investors, onSuccess }: TransactionFormProps) => {
+  const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
@@ -63,6 +66,15 @@ export const TransactionForm = ({ vaults, investors, onSuccess }: TransactionFor
   const selectedVault = watch('toVaultId');
 
   const onSubmit = async (data: TransactionFormData) => {
+    if (!user) {
+      toast({
+        title: 'Authentication Required',
+        description: 'Please sign in to create transactions.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const { error } = await supabase.from('transactions').insert({
@@ -75,6 +87,27 @@ export const TransactionForm = ({ vaults, investors, onSuccess }: TransactionFor
       });
 
       if (error) throw error;
+
+      // Send email notification
+      const selectedInvestorData = investors.find(i => i.id === data.fromInvestorId);
+      const selectedVaultData = vaults.find(v => v.id === data.toVaultId);
+      
+      if (user.email && selectedInvestorData && selectedVaultData) {
+        try {
+          await supabase.functions.invoke('send-transaction-email', {
+            body: {
+              recipientEmail: user.email,
+              transactionType: data.transactionType,
+              amount: data.amount,
+              investorName: selectedInvestorData.name,
+              vaultName: selectedVaultData.name,
+              currency: 'USD',
+            },
+          });
+        } catch (emailError) {
+          console.log('Email notification skipped:', emailError);
+        }
+      }
 
       toast({
         title: 'Transaction Created',
@@ -96,6 +129,21 @@ export const TransactionForm = ({ vaults, investors, onSuccess }: TransactionFor
   };
 
   const activeVaults = vaults.filter(v => v.status === 'active');
+
+  if (!user) {
+    return (
+      <Card className="p-6 bg-card border-border">
+        <div className="text-center py-8">
+          <Lock className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+          <h3 className="text-lg font-semibold text-foreground mb-2">Sign In Required</h3>
+          <p className="text-muted-foreground mb-4">Please sign in to create transactions.</p>
+          <Link to="/auth">
+            <Button>Sign In</Button>
+          </Link>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="p-6 bg-card border-border">
