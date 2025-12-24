@@ -4,6 +4,7 @@ import { useRef, useMemo, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { Card } from '@/components/ui/card';
 import { VaultDetailModal } from '@/components/VaultDetailModal';
+import { VaultDetailPage } from '@/components/VaultDetailPage';
 import { TransactionForm } from '@/components/TransactionForm';
 import { TimelinePlayback } from '@/components/TimelinePlayback';
 import { NetworkFilters } from '@/components/NetworkFilters';
@@ -264,6 +265,7 @@ const CapitalFlowVisualization = () => {
   } = useCapitalFlowData();
 
   const [modalOpen, setModalOpen] = useState(false);
+  const [vaultDetailOpen, setVaultDetailOpen] = useState(false);
   const [selectedVault, setSelectedVault] = useState<typeof vaults[0] | null>(null);
   const [selectedInvestor, setSelectedInvestor] = useState<typeof investors[0] | null>(null);
   const [modalTransactions, setModalTransactions] = useState<any[]>([]);
@@ -363,10 +365,7 @@ const CapitalFlowVisualization = () => {
       if (vault) {
         setSelectedVault(vault);
         setSelectedInvestor(null);
-        setModalTransactions(getVaultTransactions(id));
-        setConnectedInvestors(getConnectedInvestors(id));
-        setConnectedVaults([]);
-        setModalOpen(true);
+        setVaultDetailOpen(true);
       }
     } else {
       const investor = investors.find(i => i.id === id);
@@ -379,7 +378,7 @@ const CapitalFlowVisualization = () => {
         setModalOpen(true);
       }
     }
-  }, [vaults, investors, getVaultTransactions, getInvestorTransactions, getConnectedInvestors, getConnectedVaults]);
+  }, [vaults, investors, getInvestorTransactions, getConnectedVaults]);
 
   const totalActiveFlows = filteredFlows.reduce((sum, f) => {
     const amountStr = f.amount.replace('$', '').replace('M', '');
@@ -545,11 +544,17 @@ const CapitalFlowVisualization = () => {
       <VaultDetailModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        vault={selectedVault}
+        vault={null}
         investor={selectedInvestor}
         transactions={modalTransactions}
         connectedInvestors={connectedInvestors}
         connectedVaults={connectedVaults}
+      />
+
+      <VaultDetailPage
+        isOpen={vaultDetailOpen}
+        onClose={() => setVaultDetailOpen(false)}
+        vault={selectedVault}
       />
     </section>
   );

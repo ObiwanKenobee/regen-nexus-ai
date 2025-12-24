@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -9,10 +9,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/hooks/useAuth';
-import { LogIn, LogOut, User, Shield } from 'lucide-react';
+import { LogIn, LogOut, User, Shield, UserCog } from 'lucide-react';
 
 export const AuthButton = () => {
   const { user, isAdmin, signOut, isLoading } = useAuth();
+  const navigate = useNavigate();
 
   if (isLoading) {
     return (
@@ -53,6 +54,12 @@ export const AuthButton = () => {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {isAdmin && (
+          <DropdownMenuItem onClick={() => navigate('/admin')} className="cursor-pointer">
+            <UserCog className="w-4 h-4 mr-2" />
+            Admin Dashboard
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onClick={signOut} className="text-destructive cursor-pointer">
           <LogOut className="w-4 h-4 mr-2" />
           Sign Out
