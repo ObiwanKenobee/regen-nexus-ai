@@ -9,8 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { 
   Shield, Users, Search, ChevronLeft, 
-  UserCog, Crown, User, Loader2
+  UserCog, Crown, User, Loader2, History
 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -61,13 +62,26 @@ const roleBadgeVariants: Record<AppRole, 'default' | 'secondary' | 'outline'> = 
   user: 'outline',
 };
 
+interface AuditLog {
+  id: string;
+  user_id: string;
+  action: string;
+  target_type: string;
+  target_id: string | null;
+  old_value: unknown;
+  new_value: unknown;
+  created_at: string;
+}
+
 const Admin = () => {
   const { user, isAdmin, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [users, setUsers] = useState<UserWithRole[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'users' | 'logs'>('users');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -81,6 +95,7 @@ const Admin = () => {
       navigate('/');
     } else if (!authLoading && isAdmin) {
       fetchUsers();
+      fetchAuditLogs();
     }
   }, [user, isAdmin, authLoading, navigate]);
 
@@ -126,7 +141,46 @@ const Admin = () => {
     }
   };
 
+  const fetchAuditLogs = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('audit_logs')
+        .select('id, user_id, action, target_type, target_id, old_value, new_value, created_at')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      setAuditLogs((data || []) as AuditLog[]);
+    } catch (error) {
+      console.error('Error fetching audit logs:', error);
+    }
+  };
+
+  const logAuditAction = async (
+    action: string,
+    targetType: string,
+    targetId: string,
+    oldValue: unknown,
+    newValue: unknown
+  ) => {
+    if (!user) return;
+    
+    await supabase.from('audit_logs').insert([{
+      user_id: user.id,
+      action,
+      target_type: targetType,
+      target_id: targetId,
+      old_value: oldValue as never,
+      new_value: newValue as never,
+    }]);
+    
+    fetchAuditLogs();
+  };
+
   const handleRoleChange = async (userId: string, newRole: AppRole) => {
+    const targetUser = users.find(u => u.user_id === userId);
+    const oldRole = targetUser?.role || 'user';
+    
     setUpdatingUserId(userId);
     try {
       // Check if user already has a role entry
@@ -153,6 +207,15 @@ const Admin = () => {
         if (error) throw error;
       }
 
+      // Log the action
+      await logAuditAction(
+        'role_change',
+        'user',
+        userId,
+        { role: oldRole, email: targetUser?.email },
+        { role: newRole, email: targetUser?.email }
+      );
+
       // Update local state
       setUsers(prev =>
         prev.map(u =>
@@ -162,7 +225,7 @@ const Admin = () => {
 
       toast({
         title: 'Role Updated',
-        description: `User role changed to ${newRole}.`,
+        description: `User role changed from ${oldRole} to ${newRole}.`,
       });
     } catch (error) {
       console.error('Error updating role:', error);
@@ -256,133 +319,208 @@ const Admin = () => {
           </Card>
         </div>
 
-        {/* Users Table */}
-        <Card className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold">User Management</h2>
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search users..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-          </div>
+        <Tabs defaultValue="users" className="w-full">
+          <TabsList className="mb-6">
+            <TabsTrigger value="users" className="gap-2">
+              <Users className="w-4 h-4" />
+              User Management
+            </TabsTrigger>
+            <TabsTrigger value="logs" className="gap-2">
+              <History className="w-4 h-4" />
+              Audit Logs
+            </TabsTrigger>
+          </TabsList>
 
-          <div className="rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Current Role</TableHead>
-                  <TableHead>Joined</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredUsers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                      No users found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredUsers.map((u) => (
-                    <TableRow key={u.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {roleIcons[u.role]}
-                          <span className="font-medium">
-                            {u.full_name || 'Unnamed User'}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {u.email || 'No email'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={roleBadgeVariants[u.role]}>
-                          {u.role}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {new Date(u.created_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {u.user_id === user?.id ? (
-                          <span className="text-sm text-muted-foreground">You</span>
-                        ) : (
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <div>
-                                <Select
-                                  value={u.role}
-                                  disabled={updatingUserId === u.user_id}
-                                >
-                                  <SelectTrigger className="w-32">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="user">User</SelectItem>
-                                    <SelectItem value="moderator">Moderator</SelectItem>
-                                    <SelectItem value="admin">Admin</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Change User Role</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Select a new role for {u.full_name || u.email || 'this user'}.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <div className="py-4 space-y-2">
-                                <Button
-                                  variant={u.role === 'user' ? 'secondary' : 'outline'}
-                                  className="w-full justify-start"
-                                  onClick={() => handleRoleChange(u.user_id, 'user')}
-                                  disabled={updatingUserId === u.user_id}
-                                >
-                                  <User className="w-4 h-4 mr-2" />
-                                  User - Basic access
-                                </Button>
-                                <Button
-                                  variant={u.role === 'moderator' ? 'secondary' : 'outline'}
-                                  className="w-full justify-start"
-                                  onClick={() => handleRoleChange(u.user_id, 'moderator')}
-                                  disabled={updatingUserId === u.user_id}
-                                >
-                                  <Shield className="w-4 h-4 mr-2" />
-                                  Moderator - Content management
-                                </Button>
-                                <Button
-                                  variant={u.role === 'admin' ? 'secondary' : 'outline'}
-                                  className="w-full justify-start"
-                                  onClick={() => handleRoleChange(u.user_id, 'admin')}
-                                  disabled={updatingUserId === u.user_id}
-                                >
-                                  <Crown className="w-4 h-4 mr-2" />
-                                  Admin - Full access
-                                </Button>
-                              </div>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        )}
-                      </TableCell>
+          <TabsContent value="users">
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-semibold">User Management</h2>
+                <div className="relative w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search users..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Current Role</TableHead>
+                      <TableHead>Joined</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredUsers.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                          No users found
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredUsers.map((u) => (
+                        <TableRow key={u.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {roleIcons[u.role]}
+                              <span className="font-medium">
+                                {u.full_name || 'Unnamed User'}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {u.email || 'No email'}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={roleBadgeVariants[u.role]}>
+                              {u.role}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {new Date(u.created_at).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {u.user_id === user?.id ? (
+                              <span className="text-sm text-muted-foreground">You</span>
+                            ) : (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <div>
+                                    <Select
+                                      value={u.role}
+                                      disabled={updatingUserId === u.user_id}
+                                    >
+                                      <SelectTrigger className="w-32">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="user">User</SelectItem>
+                                        <SelectItem value="moderator">Moderator</SelectItem>
+                                        <SelectItem value="admin">Admin</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Change User Role</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Select a new role for {u.full_name || u.email || 'this user'}.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <div className="py-4 space-y-2">
+                                    <Button
+                                      variant={u.role === 'user' ? 'secondary' : 'outline'}
+                                      className="w-full justify-start"
+                                      onClick={() => handleRoleChange(u.user_id, 'user')}
+                                      disabled={updatingUserId === u.user_id}
+                                    >
+                                      <User className="w-4 h-4 mr-2" />
+                                      User - Basic access
+                                    </Button>
+                                    <Button
+                                      variant={u.role === 'moderator' ? 'secondary' : 'outline'}
+                                      className="w-full justify-start"
+                                      onClick={() => handleRoleChange(u.user_id, 'moderator')}
+                                      disabled={updatingUserId === u.user_id}
+                                    >
+                                      <Shield className="w-4 h-4 mr-2" />
+                                      Moderator - Content management
+                                    </Button>
+                                    <Button
+                                      variant={u.role === 'admin' ? 'secondary' : 'outline'}
+                                      className="w-full justify-start"
+                                      onClick={() => handleRoleChange(u.user_id, 'admin')}
+                                      disabled={updatingUserId === u.user_id}
+                                    >
+                                      <Crown className="w-4 h-4 mr-2" />
+                                      Admin - Full access
+                                    </Button>
+                                  </div>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="logs">
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-semibold">Audit Logs</h2>
+                <Badge variant="outline">{auditLogs.length} entries</Badge>
+              </div>
+
+              <div className="rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Timestamp</TableHead>
+                      <TableHead>Action</TableHead>
+                      <TableHead>Target</TableHead>
+                      <TableHead>Changes</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {auditLogs.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                          No audit logs yet
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      auditLogs.map((log) => {
+                        const oldVal = log.old_value as Record<string, unknown> | null;
+                        const newVal = log.new_value as Record<string, unknown> | null;
+                        return (
+                          <TableRow key={log.id}>
+                            <TableCell className="text-muted-foreground text-sm">
+                              {new Date(log.created_at).toLocaleString()}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="secondary">{log.action}</Badge>
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              <span className="text-muted-foreground">{log.target_type}:</span>{' '}
+                              {String(oldVal?.email || log.target_id?.slice(0, 8) || 'N/A')}
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              {oldVal?.role && newVal?.role ? (
+                                <span>
+                                  <Badge variant="outline" className="mr-2">{String(oldVal.role)}</Badge>
+                                  →
+                                  <Badge variant="default" className="ml-2">{String(newVal.role)}</Badge>
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );

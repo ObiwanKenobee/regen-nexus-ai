@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          new_value: Json | null
+          old_value: Json | null
+          target_id: string | null
+          target_type: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          new_value?: Json | null
+          old_value?: Json | null
+          target_id?: string | null
+          target_type: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          new_value?: Json | null
+          old_value?: Json | null
+          target_id?: string | null
+          target_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       community_members: {
         Row: {
           email: string | null
@@ -328,6 +364,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      has_moderator_or_admin_role: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

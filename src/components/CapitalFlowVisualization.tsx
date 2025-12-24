@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { Card } from '@/components/ui/card';
 import { VaultDetailModal } from '@/components/VaultDetailModal';
 import { VaultDetailPage } from '@/components/VaultDetailPage';
+import { InvestorDetailPage } from '@/components/InvestorDetailPage';
 import { TransactionForm } from '@/components/TransactionForm';
 import { TimelinePlayback } from '@/components/TimelinePlayback';
 import { NetworkFilters } from '@/components/NetworkFilters';
@@ -266,6 +267,7 @@ const CapitalFlowVisualization = () => {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [vaultDetailOpen, setVaultDetailOpen] = useState(false);
+  const [investorDetailOpen, setInvestorDetailOpen] = useState(false);
   const [selectedVault, setSelectedVault] = useState<typeof vaults[0] | null>(null);
   const [selectedInvestor, setSelectedInvestor] = useState<typeof investors[0] | null>(null);
   const [modalTransactions, setModalTransactions] = useState<any[]>([]);
@@ -372,13 +374,10 @@ const CapitalFlowVisualization = () => {
       if (investor) {
         setSelectedInvestor(investor);
         setSelectedVault(null);
-        setModalTransactions(getInvestorTransactions(id));
-        setConnectedVaults(getConnectedVaults(id));
-        setConnectedInvestors([]);
-        setModalOpen(true);
+        setInvestorDetailOpen(true);
       }
     }
-  }, [vaults, investors, getInvestorTransactions, getConnectedVaults]);
+  }, [vaults, investors]);
 
   const totalActiveFlows = filteredFlows.reduce((sum, f) => {
     const amountStr = f.amount.replace('$', '').replace('M', '');
@@ -555,6 +554,12 @@ const CapitalFlowVisualization = () => {
         isOpen={vaultDetailOpen}
         onClose={() => setVaultDetailOpen(false)}
         vault={selectedVault}
+      />
+
+      <InvestorDetailPage
+        isOpen={investorDetailOpen}
+        onClose={() => setInvestorDetailOpen(false)}
+        investor={selectedInvestor}
       />
     </section>
   );
