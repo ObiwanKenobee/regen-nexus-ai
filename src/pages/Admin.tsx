@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { 
   Shield, Users, Search, ChevronLeft, 
-  UserCog, Crown, User, Loader2, History
+  UserCog, Crown, User, Loader2, History, Download
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -154,6 +154,50 @@ const Admin = () => {
     } catch (error) {
       console.error('Error fetching audit logs:', error);
     }
+  };
+
+  const exportAuditLogsToCSV = () => {
+    if (auditLogs.length === 0) {
+      toast({
+        title: 'No Data',
+        description: 'There are no audit logs to export.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const headers = ['Timestamp', 'User ID', 'Action', 'Target Type', 'Target ID', 'Old Value', 'New Value'];
+    
+    const csvRows = auditLogs.map(log => {
+      const oldVal = log.old_value ? JSON.stringify(log.old_value) : '';
+      const newVal = log.new_value ? JSON.stringify(log.new_value) : '';
+      return [
+        new Date(log.created_at).toISOString(),
+        log.user_id,
+        log.action,
+        log.target_type,
+        log.target_id || '',
+        `"${oldVal.replace(/"/g, '""')}"`,
+        `"${newVal.replace(/"/g, '""')}"`,
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...csvRows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `audit-logs-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: 'Export Complete',
+      description: `Exported ${auditLogs.length} audit log entries to CSV.`,
+    });
   };
 
   const logAuditAction = async (
@@ -464,7 +508,19 @@ const Admin = () => {
             <Card className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-semibold">Audit Logs</h2>
-                <Badge variant="outline">{auditLogs.length} entries</Badge>
+                <div className="flex items-center gap-3">
+                  <Badge variant="outline">{auditLogs.length} entries</Badge>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={exportAuditLogsToCSV}
+                    disabled={auditLogs.length === 0}
+                    className="gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    Export CSV
+                  </Button>
+                </div>
               </div>
 
               <div className="rounded-lg border">

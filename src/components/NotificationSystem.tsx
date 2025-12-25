@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,6 +6,8 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Bell, BellOff, X, AlertTriangle, TrendingUp, DollarSign, Trash2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 interface Transaction {
   id: string;
@@ -26,15 +28,28 @@ interface Notification {
 }
 
 interface NotificationSystemProps {
-  transactions: Transaction[];
-  newTransactionId: string | null;
+  transactions?: Transaction[];
+  newTransactionId?: string | null;
 }
 
-export const NotificationSystem = ({ transactions, newTransactionId }: NotificationSystemProps) => {
+interface RealtimeTransactionPayload {
+  new: {
+    id: string;
+    amount: number;
+    currency: string;
+    transaction_type: string;
+    from_investor_id: string | null;
+    to_vault_id: string | null;
+    created_at: string;
+  };
+}
+
+export const NotificationSystem = ({ transactions = [], newTransactionId }: NotificationSystemProps) => {
   const [enabled, setEnabled] = useState(true);
   const [threshold, setThreshold] = useState(10); // In millions
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showPanel, setShowPanel] = useState(false);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const addNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
     const newNotification: Notification = {
@@ -46,9 +61,96 @@ export const NotificationSystem = ({ transactions, newTransactionId }: Notificat
     setNotifications(prev => [newNotification, ...prev].slice(0, 50));
   }, []);
 
-  // Monitor for new transactions
+  // Supabase Realtime subscription for new transactions
   useEffect(() => {
-    if (!enabled || !newTransactionId) return;
+    if (!enabled) return;
+
+    channelRef.current = supabase
+      .channel('transaction-realtime-notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'transactions',
+        },
+        async (payload: RealtimeTransactionPayload) => {
+          const transaction = payload.new;
+          
+          // Fetch investor and vault names
+          let investorName = 'Unknown Investor';
+          let vaultName = 'Unknown Vault';
+
+          if (transaction.from_investor_id) {
+            const { data: investor } = await supabase
+              .from('investors')
+              .select('name')
+              .eq('id', transaction.from_investor_id)
+              .single();
+            if (investor) investorName = investor.name;
+          }
+
+          if (transaction.to_vault_id) {
+            const { data: vault } = await supabase
+              .from('vaults')
+              .select('name')
+              .eq('id', transaction.to_vault_id)
+              .single();
+            if (vault) vaultName = vault.name;
+          }
+
+          const formattedAmount = new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: transaction.currency,
+            maximumFractionDigits: 0,
+          }).format(transaction.amount);
+
+          const amountInMillions = transaction.amount / 1000000;
+
+          // Show toast notification
+          toast({
+            title: 'New Transaction',
+            description: (
+              <div className="flex items-start gap-2">
+                <DollarSign className="w-4 h-4 mt-0.5 text-green-500" />
+                <div>
+                  <p className="font-medium">{formattedAmount} {transaction.transaction_type}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {investorName} → {vaultName}
+                  </p>
+                </div>
+              </div>
+            ),
+          });
+
+          // Add to notification panel
+          if (amountInMillions >= threshold) {
+            addNotification({
+              type: 'large_transaction',
+              title: 'Large Transaction Detected',
+              message: `${investorName} invested ${formattedAmount} to ${vaultName}`,
+            });
+          } else {
+            addNotification({
+              type: 'threshold',
+              title: 'New Capital Flow',
+              message: `${formattedAmount} from ${investorName} to ${vaultName}`,
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
+    };
+  }, [enabled, threshold, addNotification]);
+
+  // Monitor for new transactions from props (legacy support)
+  useEffect(() => {
+    if (!enabled || !newTransactionId || transactions.length === 0) return;
 
     const newTx = transactions.find(tx => tx.id === newTransactionId);
     if (!newTx) return;
@@ -63,18 +165,11 @@ export const NotificationSystem = ({ transactions, newTransactionId }: Notificat
         message: `${newTx.investor?.name || 'Unknown'} invested $${amountInMillions.toFixed(1)}M to ${newTx.vault?.name || 'Unknown'}`,
       });
     }
-
-    // Always notify for new transactions
-    addNotification({
-      type: 'threshold',
-      title: 'New Capital Flow',
-      message: `$${amountInMillions.toFixed(2)}M from ${newTx.investor?.name || 'Unknown'} to ${newTx.vault?.name || 'Unknown'}`,
-    });
   }, [newTransactionId, transactions, threshold, enabled, addNotification]);
 
   // Check for milestones
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || transactions.length === 0) return;
 
     const totalCapital = transactions.reduce((sum, tx) => sum + tx.amount, 0);
     const totalInMillions = totalCapital / 1000000;
