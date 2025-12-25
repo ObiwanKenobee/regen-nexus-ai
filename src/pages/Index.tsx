@@ -12,10 +12,12 @@ import { Pricing } from "@/components/Pricing";
 import { AnalyticsDashboard } from "@/components/AnalyticsDashboard";
 import { NodeCreationForms } from "@/components/NodeCreationForms";
 import { AuthButton } from "@/components/AuthButton";
+import { NotificationSystem } from "@/components/NotificationSystem";
 
 const Index = () => {
   return (
     <div className="min-h-screen transition-colors duration-500">
+      <NotificationSystem />
       <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
         <AuthButton />
         <ThemeToggle />
