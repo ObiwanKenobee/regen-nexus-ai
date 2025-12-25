@@ -2,3 +2,6 @@ project_id = "qqmcwxfhdlzwxsfdxsfg"
 
 [functions.send-transaction-email]
 verify_jwt = false
+
+[functions.send-critical-event-email]
+verify_jwt = false

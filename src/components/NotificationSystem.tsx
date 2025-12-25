@@ -130,6 +130,28 @@ export const NotificationSystem = ({ transactions = [], newTransactionId }: Noti
               title: 'Large Transaction Detected',
               message: `${investorName} invested ${formattedAmount} to ${vaultName}`,
             });
+
+            // Send email notification for large transactions
+            try {
+              const { data: { user } } = await supabase.auth.getUser();
+              if (user?.email) {
+                await supabase.functions.invoke('send-critical-event-email', {
+                  body: {
+                    recipientEmail: user.email,
+                    eventType: 'large_transaction',
+                    eventData: {
+                      amount: transaction.amount,
+                      currency: transaction.currency,
+                      investorName,
+                      vaultName,
+                    },
+                  },
+                });
+                console.log('Large transaction email notification sent');
+              }
+            } catch (emailError) {
+              console.error('Failed to send large transaction email:', emailError);
+            }
           } else {
             addNotification({
               type: 'threshold',
