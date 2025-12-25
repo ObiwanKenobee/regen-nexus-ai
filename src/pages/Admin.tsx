@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,9 +9,12 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { 
   Shield, Users, Search, ChevronLeft, 
-  UserCog, Crown, User, Loader2, History, Download
+  UserCog, Crown, User, Loader2, History, Download, Calendar, RefreshCw
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { format } from 'date-fns';
 import {
   Select,
   SelectContent,
@@ -82,6 +85,9 @@ const Admin = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'users' | 'logs'>('users');
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -96,8 +102,54 @@ const Admin = () => {
     } else if (!authLoading && isAdmin) {
       fetchUsers();
       fetchAuditLogs();
+      setupRealtimeSubscriptions();
     }
+
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
+    };
   }, [user, isAdmin, authLoading, navigate]);
+
+  const setupRealtimeSubscriptions = () => {
+    channelRef.current = supabase
+      .channel('admin-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'profiles' },
+        (payload) => {
+          console.log('New user profile created:', payload);
+          toast({
+            title: 'New User Registered',
+            description: `A new user has joined the platform.`,
+          });
+          fetchUsers();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'user_roles' },
+        (payload) => {
+          console.log('User role changed:', payload);
+          if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+            toast({
+              title: 'Role Updated',
+              description: 'A user role has been modified.',
+            });
+          }
+          fetchUsers();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'audit_logs' },
+        () => {
+          fetchAuditLogs();
+        }
+      )
+      .subscribe();
+  };
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -143,17 +195,39 @@ const Admin = () => {
 
   const fetchAuditLogs = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('audit_logs')
         .select('id, user_id, action, target_type, target_id, old_value, new_value, created_at')
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(100);
+
+      if (dateFrom) {
+        query = query.gte('created_at', dateFrom.toISOString());
+      }
+      if (dateTo) {
+        const endOfDay = new Date(dateTo);
+        endOfDay.setHours(23, 59, 59, 999);
+        query = query.lte('created_at', endOfDay.toISOString());
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setAuditLogs((data || []) as AuditLog[]);
     } catch (error) {
       console.error('Error fetching audit logs:', error);
     }
+  };
+
+  useEffect(() => {
+    if (isAdmin) {
+      fetchAuditLogs();
+    }
+  }, [dateFrom, dateTo, isAdmin]);
+
+  const clearDateFilters = () => {
+    setDateFrom(undefined);
+    setDateTo(undefined);
   };
 
   const exportAuditLogsToCSV = () => {
@@ -259,6 +333,28 @@ const Admin = () => {
         { role: oldRole, email: targetUser?.email },
         { role: newRole, email: targetUser?.email }
       );
+
+      // Send email notification for admin/moderator role assignments
+      if (newRole === 'admin' || newRole === 'moderator') {
+        try {
+          await supabase.functions.invoke('send-critical-event-email', {
+            body: {
+              recipientEmail: targetUser?.email || user?.email,
+              eventType: newRole === 'admin' ? 'admin_role_assigned' : 'moderator_role_assigned',
+              eventData: {
+                userName: targetUser?.full_name,
+                userEmail: targetUser?.email,
+                oldRole: oldRole,
+                newRole: newRole,
+                assignedBy: user?.email,
+              },
+            },
+          });
+          console.log('Critical event email sent for role assignment');
+        } catch (emailError) {
+          console.error('Failed to send role assignment email:', emailError);
+        }
+      }
 
       // Update local state
       setUsers(prev =>
@@ -506,20 +602,78 @@ const Admin = () => {
 
           <TabsContent value="logs">
             <Card className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold">Audit Logs</h2>
-                <div className="flex items-center gap-3">
-                  <Badge variant="outline">{auditLogs.length} entries</Badge>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={exportAuditLogsToCSV}
-                    disabled={auditLogs.length === 0}
-                    className="gap-2"
-                  >
-                    <Download className="w-4 h-4" />
-                    Export CSV
-                  </Button>
+              <div className="flex flex-col gap-4 mb-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold">Audit Logs</h2>
+                  <div className="flex items-center gap-3">
+                    <Badge variant="outline">{auditLogs.length} entries</Badge>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={exportAuditLogsToCSV}
+                      disabled={auditLogs.length === 0}
+                      className="gap-2"
+                    >
+                      <Download className="w-4 h-4" />
+                      Export CSV
+                    </Button>
+                  </div>
+                </div>
+                
+                {/* Date Range Filters */}
+                <div className="flex flex-wrap items-center gap-3 p-4 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Filter by date:</span>
+                  </div>
+                  
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-2">
+                        <Calendar className="w-4 h-4" />
+                        {dateFrom ? format(dateFrom, 'MMM d, yyyy') : 'From date'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={dateFrom}
+                        onSelect={setDateFrom}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  
+                  <span className="text-muted-foreground">to</span>
+                  
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-2">
+                        <Calendar className="w-4 h-4" />
+                        {dateTo ? format(dateTo, 'MMM d, yyyy') : 'To date'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={dateTo}
+                        onSelect={setDateTo}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  
+                  {(dateFrom || dateTo) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearDateFilters}
+                      className="gap-2 text-muted-foreground hover:text-foreground"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      Clear
+                    </Button>
+                  )}
                 </div>
               </div>
 
