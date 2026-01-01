@@ -1,5 +1,8 @@
 project_id = "qqmcwxfhdlzwxsfdxsfg"
 
+[functions.rate-limit]
+verify_jwt = false
+
 [functions.send-transaction-email]
 verify_jwt = false
 
