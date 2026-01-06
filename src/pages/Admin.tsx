@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { 
   Shield, Users, Search, ChevronLeft, 
-  UserCog, Crown, User, Loader2, History, Download, Calendar, RefreshCw
+  UserCog, Crown, User, Loader2, History, Download, Calendar, RefreshCw,
+  Settings, Activity, BarChart3
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -41,6 +42,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import NotificationSettings from '@/components/admin/NotificationSettings';
+import RealTimeTransactionWidget from '@/components/admin/RealTimeTransactionWidget';
+import UserActivityTracker from '@/components/admin/UserActivityTracker';
 
 type AppRole = 'admin' | 'moderator' | 'user';
 
@@ -469,6 +473,14 @@ const Admin = () => {
               <History className="w-4 h-4" />
               Audit Logs
             </TabsTrigger>
+            <TabsTrigger value="activity" className="gap-2">
+              <Activity className="w-4 h-4" />
+              User Activity
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="gap-2">
+              <Settings className="w-4 h-4" />
+              Notifications
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="users">
@@ -729,6 +741,17 @@ const Admin = () => {
                 </Table>
               </div>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="activity">
+            <UserActivityTracker />
+          </TabsContent>
+
+          <TabsContent value="settings">
+            <div className="grid lg:grid-cols-2 gap-6">
+              <NotificationSettings />
+              <RealTimeTransactionWidget />
+            </div>
           </TabsContent>
         </Tabs>
       </main>

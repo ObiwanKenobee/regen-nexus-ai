@@ -124,6 +124,45 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_settings: {
+        Row: {
+          created_at: string
+          email_on_large_transaction: boolean
+          email_on_milestone: boolean
+          email_on_new_user: boolean
+          email_on_role_change: boolean
+          id: string
+          large_transaction_threshold: number
+          notification_email: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email_on_large_transaction?: boolean
+          email_on_milestone?: boolean
+          email_on_new_user?: boolean
+          email_on_role_change?: boolean
+          id?: string
+          large_transaction_threshold?: number
+          notification_email?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email_on_large_transaction?: boolean
+          email_on_milestone?: boolean
+          email_on_new_user?: boolean
+          email_on_role_change?: boolean
+          id?: string
+          large_transaction_threshold?: number
+          notification_email?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -201,6 +240,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_activity: {
+        Row: {
+          activity_type: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          user_id: string
+        }
+        Insert: {
+          activity_type: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          user_id: string
+        }
+        Update: {
+          activity_type?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          user_id?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
