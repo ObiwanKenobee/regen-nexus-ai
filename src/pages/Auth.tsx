@@ -11,10 +11,12 @@ import { Loader2, Shield, ArrowLeft, Mail } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { emailSchema, simplePasswordSchema, sanitizeErrorMessage } from '@/lib/validation';
 import SEOHead from '@/components/SEOHead';
+import { useActivityTracker } from '@/hooks/useActivityTracker';
 
 const Auth = () => {
   const navigate = useNavigate();
   const { user, signUp, signIn, isLoading } = useAuth();
+  const { trackPageView, trackLogin, trackFormSubmit } = useActivityTracker();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,6 +26,10 @@ const Auth = () => {
   const [activeTab, setActiveTab] = useState('signin');
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
+
+  useEffect(() => {
+    trackPageView("Auth");
+  }, [trackPageView]);
 
   useEffect(() => {
     if (user && !isLoading) {
@@ -66,6 +72,8 @@ const Auth = () => {
         variant: 'destructive',
       });
     } else {
+      trackLogin();
+      trackFormSubmit('signin');
       toast({
         title: 'Welcome Back!',
         description: 'You have successfully signed in.',
@@ -93,6 +101,7 @@ const Auth = () => {
         variant: 'destructive',
       });
     } else {
+      trackFormSubmit('signup');
       toast({
         title: 'Account Created!',
         description: 'You have successfully signed up.',

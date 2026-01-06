@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import Hero from "@/components/Hero";
 import RVXArchitecture from "@/components/RVXArchitecture";
 import AcademicDomains from "@/components/AcademicDomains";
@@ -14,11 +15,19 @@ import { NodeCreationForms } from "@/components/NodeCreationForms";
 import { AuthButton } from "@/components/AuthButton";
 import { NotificationSystem } from "@/components/NotificationSystem";
 import SEOHead from "@/components/SEOHead";
+import LiveCapitalFlowDashboard from "@/components/LiveCapitalFlowDashboard";
+import { useActivityTracker } from "@/hooks/useActivityTracker";
 
 const Index = () => {
+  const { trackPageView, trackClick } = useActivityTracker();
+
+  useEffect(() => {
+    trackPageView("Home");
+  }, [trackPageView]);
+
   return (
     <>
-      <SEOHead 
+      <SEOHead
         title="Home"
         description="RDX Platform - AI-driven regenerative development exchange for climate-linked economic transformation. Connect community-led innovation with global capital across Africa."
         keywords="regenerative finance, climate investment, Africa development, sustainable capital, impact investing, sovereign vaults, green bonds"
@@ -31,6 +40,7 @@ const Index = () => {
         </header>
         <main>
           <Hero />
+          <LiveCapitalFlowDashboard />
           <RVXArchitecture />
           <ImpactMetrics />
           <CapitalFlowVisualization />
