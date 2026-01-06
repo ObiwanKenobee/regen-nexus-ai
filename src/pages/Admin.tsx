@@ -12,6 +12,7 @@ import {
   UserCog, Crown, User, Loader2, History, Download, Calendar, RefreshCw,
   Settings, Activity, BarChart3
 } from 'lucide-react';
+import { useActivityTracker } from '@/hooks/useActivityTracker';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
@@ -83,6 +84,7 @@ interface AuditLog {
 const Admin = () => {
   const { user, isAdmin, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const { trackPageView, trackFeatureUse } = useActivityTracker();
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,6 +94,10 @@ const Admin = () => {
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  useEffect(() => {
+    trackPageView("Admin Dashboard");
+  }, [trackPageView]);
 
   useEffect(() => {
     if (!authLoading && !user) {
