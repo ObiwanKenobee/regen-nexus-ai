@@ -10,7 +10,7 @@ import { toast } from '@/hooks/use-toast';
 import { 
   Shield, Users, Search, ChevronLeft, 
   UserCog, Crown, User, Loader2, History, Download, Calendar, RefreshCw,
-  Settings, Activity, BarChart3
+  Settings, Activity, BarChart3, Award, Mail
 } from 'lucide-react';
 import { useActivityTracker } from '@/hooks/useActivityTracker';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -46,6 +46,8 @@ import {
 import NotificationSettings from '@/components/admin/NotificationSettings';
 import RealTimeTransactionWidget from '@/components/admin/RealTimeTransactionWidget';
 import UserActivityTracker from '@/components/admin/UserActivityTracker';
+import EngagementScoreDisplay from '@/components/admin/EngagementScoreDisplay';
+import ScheduledReportsManager from '@/components/admin/ScheduledReportsManager';
 
 type AppRole = 'admin' | 'moderator' | 'user';
 
@@ -470,10 +472,10 @@ const Admin = () => {
         </div>
 
         <Tabs defaultValue="users" className="w-full">
-          <TabsList className="mb-6">
+          <TabsList className="mb-6 flex-wrap">
             <TabsTrigger value="users" className="gap-2">
               <Users className="w-4 h-4" />
-              User Management
+              Users
             </TabsTrigger>
             <TabsTrigger value="logs" className="gap-2">
               <History className="w-4 h-4" />
@@ -481,11 +483,19 @@ const Admin = () => {
             </TabsTrigger>
             <TabsTrigger value="activity" className="gap-2">
               <Activity className="w-4 h-4" />
-              User Activity
+              Activity
+            </TabsTrigger>
+            <TabsTrigger value="engagement" className="gap-2">
+              <Award className="w-4 h-4" />
+              Engagement
+            </TabsTrigger>
+            <TabsTrigger value="reports" className="gap-2">
+              <Mail className="w-4 h-4" />
+              Reports
             </TabsTrigger>
             <TabsTrigger value="settings" className="gap-2">
               <Settings className="w-4 h-4" />
-              Notifications
+              Settings
             </TabsTrigger>
           </TabsList>
 
@@ -751,6 +761,14 @@ const Admin = () => {
 
           <TabsContent value="activity">
             <UserActivityTracker />
+          </TabsContent>
+
+          <TabsContent value="engagement">
+            <EngagementScoreDisplay />
+          </TabsContent>
+
+          <TabsContent value="reports">
+            <ScheduledReportsManager />
           </TabsContent>
 
           <TabsContent value="settings">
