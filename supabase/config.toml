@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.send-activity-report]
 verify_jwt = false
+
+[functions.scheduled-reports-cron]
+verify_jwt = false

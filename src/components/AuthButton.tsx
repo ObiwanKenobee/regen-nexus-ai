@@ -9,7 +9,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/hooks/useAuth';
-import { LogIn, LogOut, User, Shield, UserCog } from 'lucide-react';
+import { LogIn, LogOut, User, Shield, UserCog, Trophy } from 'lucide-react';
+import UserBadge from '@/components/UserBadge';
 
 export const AuthButton = () => {
   const { user, isAdmin, signOut, isLoading } = useAuth();
@@ -33,38 +34,46 @@ export const AuthButton = () => {
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
-          <User className="w-4 h-4" />
-          {user.email?.split('@')[0]}
-          {isAdmin && <Shield className="w-3 h-3 text-primary" />}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuLabel>
-          <div className="flex flex-col">
-            <span>{user.email}</span>
-            {isAdmin && (
-              <span className="text-xs text-primary font-normal flex items-center gap-1">
-                <Shield className="w-3 h-3" />
-                Admin
-              </span>
-            )}
-          </div>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {isAdmin && (
-          <DropdownMenuItem onClick={() => navigate('/admin')} className="cursor-pointer">
-            <UserCog className="w-4 h-4 mr-2" />
-            Admin Dashboard
+    <div className="flex items-center gap-2">
+      <UserBadge size="sm" />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className="gap-2">
+            <User className="w-4 h-4" />
+            {user.email?.split('@')[0]}
+            {isAdmin && <Shield className="w-3 h-3 text-primary" />}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuLabel>
+            <div className="flex flex-col">
+              <span>{user.email}</span>
+              {isAdmin && (
+                <span className="text-xs text-primary font-normal flex items-center gap-1">
+                  <Shield className="w-3 h-3" />
+                  Admin
+                </span>
+              )}
+            </div>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => navigate('/leaderboard')} className="cursor-pointer">
+            <Trophy className="w-4 h-4 mr-2" />
+            Leaderboard
           </DropdownMenuItem>
-        )}
-        <DropdownMenuItem onClick={signOut} className="text-destructive cursor-pointer">
-          <LogOut className="w-4 h-4 mr-2" />
-          Sign Out
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          {isAdmin && (
+            <DropdownMenuItem onClick={() => navigate('/admin')} className="cursor-pointer">
+              <UserCog className="w-4 h-4 mr-2" />
+              Admin Dashboard
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={signOut} className="text-destructive cursor-pointer">
+            <LogOut className="w-4 h-4 mr-2" />
+            Sign Out
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 };
