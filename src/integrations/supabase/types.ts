@@ -193,6 +193,42 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduled_reports: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          is_enabled: boolean
+          last_sent_at: string | null
+          next_scheduled_at: string | null
+          recipient_emails: string[] | null
+          report_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          is_enabled?: boolean
+          last_sent_at?: string | null
+          next_scheduled_at?: string | null
+          recipient_emails?: string[] | null
+          report_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_enabled?: boolean
+          last_sent_at?: string | null
+          next_scheduled_at?: string | null
+          recipient_emails?: string[] | null
+          report_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       transactions: {
         Row: {
           amount: number
@@ -261,6 +297,54 @@ export type Database = {
           created_at?: string
           id?: string
           metadata?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_engagement_scores: {
+        Row: {
+          badge: string | null
+          clicks_count: number
+          created_at: string
+          feature_uses_count: number
+          form_submissions_count: number
+          id: string
+          last_calculated_at: string | null
+          login_count: number
+          page_views_count: number
+          session_count: number
+          total_score: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          badge?: string | null
+          clicks_count?: number
+          created_at?: string
+          feature_uses_count?: number
+          form_submissions_count?: number
+          id?: string
+          last_calculated_at?: string | null
+          login_count?: number
+          page_views_count?: number
+          session_count?: number
+          total_score?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          badge?: string | null
+          clicks_count?: number
+          created_at?: string
+          feature_uses_count?: number
+          form_submissions_count?: number
+          id?: string
+          last_calculated_at?: string | null
+          login_count?: number
+          page_views_count?: number
+          session_count?: number
+          total_score?: number
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -427,6 +511,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_engagement_score: {
+        Args: { target_user_id: string }
+        Returns: number
+      }
       has_moderator_or_admin_role: {
         Args: { _user_id: string }
         Returns: boolean
